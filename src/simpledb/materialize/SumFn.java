@@ -36,6 +36,14 @@ public class SumFn implements AggregationFn {
    }
 
    /**
+    * Sets the sum of an empty input to 0.
+    * @see simpledb.materialize.AggregationFn#processEmpty()
+    */
+   public void processEmpty() {
+      sum = 0;
+   }
+
+   /**
     * Return the field's name, prepended by "sumof".
     * @see simpledb.materialize.AggregationFn#fieldName()
     */

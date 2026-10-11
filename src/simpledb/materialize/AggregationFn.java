@@ -1,6 +1,7 @@
 package simpledb.materialize;
 
 import simpledb.query.*;
+import simpledb.record.Schema;
 
 /**
  * The interface implemented by aggregation functions.
@@ -23,6 +24,23 @@ public interface AggregationFn {
     */
    void processNext(Scan s);
    
+   /**
+    * Set the aggregation value for an input with no records.
+    * This only arises when there is no group by clause,
+    * since SQL then still returns one row.
+    */
+   void processEmpty();
+
+   /**
+    * Add the new aggregation field to the schema of the
+    * grouped output.  By default the field is an int.
+    * @param outsch the schema of the grouped output
+    * @param insch the schema of the records being aggregated
+    */
+   default void addToSchema(Schema outsch, Schema insch) {
+      outsch.addIntField(fieldName());
+   }
+
    /**
     * Return the name of the new aggregation field.
     * @return the name of the new aggregation field

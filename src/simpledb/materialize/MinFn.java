@@ -1,6 +1,8 @@
 package simpledb.materialize;
 
+import static java.sql.Types.INTEGER;
 import simpledb.query.*;
+import simpledb.record.Schema;
 
 /**
  * The <i>min</i> aggregation function.
@@ -9,6 +11,7 @@ import simpledb.query.*;
 public class MinFn implements AggregationFn {
    private String fldname;
    private Constant val;
+   private boolean isint = true;
 
    /**
     * Create a min aggregation function for the specified field.
@@ -36,6 +39,24 @@ public class MinFn implements AggregationFn {
       Constant newval = s.getVal(fldname);
       if (newval.compareTo(val) < 0)
          val = newval;
+   }
+
+   /**
+    * Sets the minimum of an empty input to 0 (or the empty string),
+    * since SimpleDB has no null.
+    * @see simpledb.materialize.AggregationFn#processEmpty()
+    */
+   public void processEmpty() {
+      val = isint ? new Constant(0) : new Constant("");
+   }
+
+   /**
+    * The minimum has the same type as the aggregated field.
+    * @see simpledb.materialize.AggregationFn#addToSchema(Schema, Schema)
+    */
+   public void addToSchema(Schema outsch, Schema insch) {
+      isint = insch.type(fldname) == INTEGER;
+      outsch.addField(fieldName(), insch.type(fldname), insch.length(fldname));
    }
 
    /**

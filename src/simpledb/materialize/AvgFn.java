@@ -43,6 +43,15 @@ public class AvgFn implements AggregationFn {
    }
 
    /**
+    * Sets the average of an empty input to 0, since SimpleDB has no null.
+    * @see simpledb.materialize.AggregationFn#processEmpty()
+    */
+   public void processEmpty() {
+      sum = 0;
+      count = 0;
+   }
+
+   /**
     * Return the field's name, prepended by "avgof".
     * @see simpledb.materialize.AggregationFn#fieldName()
     */
@@ -55,6 +64,6 @@ public class AvgFn implements AggregationFn {
     * @see simpledb.materialize.AggregationFn#value()
     */
    public Constant value() {
-      return new Constant(sum / count);
+      return new Constant(count == 0 ? 0 : sum / count);
    }
 }

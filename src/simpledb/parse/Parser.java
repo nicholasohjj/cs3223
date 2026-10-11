@@ -101,8 +101,28 @@ public class Parser {
          lex.eatKeyword("by");
          orderByList = orderByList();
       }
+      if (!groupByFields.isEmpty() || !aggFns.isEmpty())
+         checkGroupedFields(fields, orderByList, groupByFields, aggFns);
 
       return new QueryData(fields, tables, pred, orderByList, groupByFields, aggFns);
+   }
+
+   /**
+    * In a grouped query, each selected or ordered field must be
+    * a group by field or an aggregate, since no other field
+    * has a single value per group.
+    */
+   private void checkGroupedFields(List<String> fields, List<OrderByElement> orderByList,
+                                   List<String> groupByFields, List<AggregationFn> aggFns) {
+      Set<String> allowed = new HashSet<>(groupByFields);
+      for (AggregationFn fn : aggFns)
+         allowed.add(fn.fieldName());
+      for (String fldname : fields)
+         if (!allowed.contains(fldname))
+            throw new BadSyntaxException();
+      for (OrderByElement e : orderByList)
+         if (!allowed.contains(e.field()))
+            throw new BadSyntaxException();
    }
 
    /**
