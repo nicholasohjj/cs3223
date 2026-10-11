@@ -65,9 +65,9 @@ class TablePlanner {
       Predicate joinpred = mypred.joinSubPred(myschema, currsch);
       if (joinpred == null)
          return null;
-      // Prefer an index join when the RHS has a suitable hash index.  If
-      // there is no such index, use a merge join for an equality term, and
-      // finally fall back to a nested-loops join.
+      // Prefer an index join when this table has an index on an
+      // equality join field.  Otherwise, use a merge join for an
+      // equality term, and finally fall back to a nested-loops join.
       Plan p = makeIndexJoin(current, currsch);
       if (p == null)
          p = makeMergeJoin(current, currsch);
@@ -116,7 +116,7 @@ class TablePlanner {
       for (String fldname : myschema.fields()) {
          String outerfield = mypred.equatesWithField(fldname);
          if (outerfield != null && currsch.hasField(outerfield)) {
-            Plan p = new MergeJoinPlan(tx, current, myplan, outerfield, fldname);
+            Plan p = new MergeJoinPlan(tx, current, addSelectPred(myplan), outerfield, fldname);
             return addJoinPred(p, currsch);
          }
       }
@@ -124,13 +124,13 @@ class TablePlanner {
    }
 
    /**
-    * Constructs a tuple-at-a-time nested-loops join.  ProductPlan/ProductScan
-    * already implement exactly this access pattern; the join predicate is
-    * applied as a selection over the product.
+    * Constructs a tuple-at-a-time nested-loops join, which evaluates
+    * the join predicate inside the join loop, so it handles any
+    * comparison operator (not just equality).
     */
    private Plan makeNestedLoopsJoin(Plan current, Schema currsch) {
-      Plan p = new ProductPlan(current, myplan);
-      return addJoinPred(p, currsch);
+      Predicate joinpred = mypred.joinSubPred(currsch, myschema);
+      return new NestedLoopsJoinPlan(current, addSelectPred(myplan), joinpred);
    }
    
    private Plan addSelectPred(Plan p) {
