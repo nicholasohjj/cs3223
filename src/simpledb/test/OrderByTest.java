@@ -1,5 +1,7 @@
-package simpledb.plan;
+package simpledb.test;
 
+import simpledb.plan.Plan;
+import simpledb.plan.Planner;
 import simpledb.server.SimpleDB;
 import simpledb.tx.Transaction;
 import simpledb.query.Scan;

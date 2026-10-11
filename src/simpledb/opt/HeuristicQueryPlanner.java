@@ -5,6 +5,7 @@ import simpledb.tx.Transaction;
 import simpledb.metadata.MetadataMgr;
 import simpledb.parse.QueryData;
 import simpledb.materialize.GroupByPlan;
+import simpledb.materialize.SortPlan;
 import simpledb.plan.*;
 
 /**
@@ -51,7 +52,11 @@ public class HeuristicQueryPlanner implements QueryPlanner {
       if (data.isGrouped())
          currentplan = new GroupByPlan(tx, currentplan, data.groupByFields(), data.aggFns());
 
-      // Step 5.  Project on the field names and return
+      // Step 5.  Sort, if requested
+      if (!data.orderByList().isEmpty())
+         currentplan = new SortPlan(tx, currentplan, data.orderByList());
+
+      // Step 6.  Project on the field names and return
       return new ProjectPlan(currentplan, data.fields());
    }
    

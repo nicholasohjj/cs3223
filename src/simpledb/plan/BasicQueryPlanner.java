@@ -48,12 +48,11 @@ public class BasicQueryPlanner implements QueryPlanner {
       if (data.isGrouped())
          p = new GroupByPlan(tx, p, data.groupByFields(), data.aggFns());
 
-      //Step 5: Project on the field names
-      p = new ProjectPlan(p, data.fields());
+      //Step 5: Sort, if requested
+      if (!data.orderByList().isEmpty())
+         p = new SortPlan(tx, p, data.orderByList());
 
-      if (!data.orderByList().isEmpty()) {
-          p = new SortPlan(tx, p, data.orderByList());
-      }
-      return p;
+      //Step 6: Project on the field names
+      return new ProjectPlan(p, data.fields());
    }
 }
