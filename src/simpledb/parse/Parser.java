@@ -321,10 +321,12 @@ public class Parser {
       lex.eatDelim('(');
       String fldname = field();
       lex.eatDelim(')');
-      lex.eatKeyword("using");
-      String structure = lex.eatId();
-      if (!structure.equals("hash") && !structure.equals("btree")) {
-         throw new BadSyntaxException();
+      String structure = "hash";
+      if (lex.matchKeyword("using")) {
+         lex.eatKeyword("using");
+         if (lex.matchKeyword("btree"))
+            structure = "btree";
+         lex.eatKeyword(structure);
       }
       return new CreateIndexData(idxname, tblname, fldname, structure);
    }

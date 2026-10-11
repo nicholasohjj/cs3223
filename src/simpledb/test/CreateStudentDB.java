@@ -39,10 +39,10 @@ public class CreateStudentDB {
 
             System.out.println("INDEX student_majorid on STUDENT created");
 
-            s = "create index student_name on STUDENT (MajorId) using btree";
+            s = "create index student_sid on STUDENT (SId) using btree";
             planner.executeUpdate(s, tx);
 
-            System.out.println("INDEX student_name on STUDENT created");
+            System.out.println("INDEX student_sid on STUDENT created");
 
             s = "create table DEPT(DId int, DName varchar(8))";
 
@@ -111,6 +111,11 @@ public class CreateStudentDB {
                 planner.executeUpdate(s, tx);
             }
             System.out.println("ENROLL records inserted.");
+
+            s = "create index enroll_studentid on ENROLL (StudentId) using btree";
+            planner.executeUpdate(s, tx);
+
+            System.out.println("INDEX enroll_studentid on ENROLL created");
 
             tx.commit();
             System.out.println("Transaction committed.");
