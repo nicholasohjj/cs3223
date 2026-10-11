@@ -1,5 +1,6 @@
 package simpledb.plan;
 
+import java.util.List;
 import simpledb.query.ProductScan;
 import simpledb.query.Scan;
 import simpledb.record.Schema;
@@ -75,5 +76,13 @@ public class ProductPlan implements Plan {
     */
    public Schema schema() {
       return schema;
+   }
+
+   public List<Plan> children() {
+      return List.of(p1, p2);
+   }
+
+   public String toString() {
+      return "Product";
    }
 }

@@ -1,5 +1,6 @@
 package simpledb.plan;
 
+import java.util.List;
 import simpledb.query.Scan;
 import simpledb.record.*;
 
@@ -45,4 +46,13 @@ public interface Plan {
     * @return the query's schema
     */
    public Schema schema();
+
+   /**
+    * Returns the input plans of this plan, for displaying the plan tree.
+    * Each plan's toString() describes its own node only.
+    * @return the plan's inputs, or an empty list for a leaf
+    */
+   default List<Plan> children() {
+      return List.of();
+   }
 }

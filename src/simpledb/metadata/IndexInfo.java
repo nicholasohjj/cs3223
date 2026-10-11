@@ -118,4 +118,16 @@ public class IndexInfo {
       }
       return new Layout(sch);
    }
+
+   public String indexName() {
+      return idxname;
+   }
+
+   public String fieldName() {
+      return fldname;
+   }
+
+   public String structure() {
+      return structure;
+   }
 }

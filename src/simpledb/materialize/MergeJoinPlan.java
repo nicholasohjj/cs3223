@@ -98,5 +98,12 @@ public class MergeJoinPlan implements Plan {
    public Schema schema() {
       return sch;
    }
-}
 
+   public List<Plan> children() {
+      return List.of(p1, p2);
+   }
+
+   public String toString() {
+      return "MergeJoin(" + fldname1 + " = " + fldname2 + ")";
+   }
+}

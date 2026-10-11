@@ -6,6 +6,7 @@ import simpledb.metadata.MetadataMgr;
 import simpledb.parse.QueryData;
 import simpledb.materialize.GroupByPlan;
 import simpledb.materialize.SortPlan;
+import simpledb.materialize.DistinctPlan;
 import simpledb.plan.*;
 
 /**
@@ -52,12 +53,17 @@ public class HeuristicQueryPlanner implements QueryPlanner {
       if (data.isGrouped())
          currentplan = new GroupByPlan(tx, currentplan, data.groupByFields(), data.aggFns());
 
-      // Step 5.  Sort, if requested
-      if (!data.orderByList().isEmpty())
+      // Step 5.  Sort, if requested (a distinct query sorts in step 7 instead)
+      if (!data.isDistinct() && !data.orderByList().isEmpty())
          currentplan = new SortPlan(tx, currentplan, data.orderByList());
 
-      // Step 6.  Project on the field names and return
-      return new ProjectPlan(currentplan, data.fields());
+      // Step 6.  Project on the field names
+      currentplan = new ProjectPlan(currentplan, data.fields());
+
+      // Step 7.  Remove duplicate rows, if requested, and return
+      if (data.isDistinct())
+         currentplan = new DistinctPlan(tx, currentplan, data.orderByList());
+      return currentplan;
    }
    
    private Plan getLowestSelectPlan() {

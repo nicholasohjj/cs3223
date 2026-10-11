@@ -79,6 +79,11 @@ public class Parser {
    
    public QueryData query() {
       lex.eatKeyword("select");
+      boolean distinct = false;
+      if (lex.matchKeyword("distinct")) {
+         lex.eatKeyword("distinct");
+         distinct = true;
+      }
       List<String> fields = new ArrayList<>();
       List<AggregationFn> aggFns = new ArrayList<>();
       selectList(fields, aggFns);
@@ -103,8 +108,14 @@ public class Parser {
       }
       if (!groupByFields.isEmpty() || !aggFns.isEmpty())
          checkGroupedFields(fields, orderByList, groupByFields, aggFns);
+      // the distinct sort also does the ordering, so it can only
+      // order on fields that appear in the output
+      if (distinct)
+         for (OrderByElement e : orderByList)
+            if (!fields.contains(e.field()))
+               throw new BadSyntaxException();
 
-      return new QueryData(fields, tables, pred, orderByList, groupByFields, aggFns);
+      return new QueryData(fields, tables, pred, orderByList, groupByFields, aggFns, distinct);
    }
 
    /**

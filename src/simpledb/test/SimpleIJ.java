@@ -2,6 +2,7 @@ package simpledb.test;
 
 import simpledb.plan.Plan;
 import simpledb.plan.Planner;
+import simpledb.plan.Plans;
 import simpledb.query.Scan;
 import simpledb.record.Schema;
 import simpledb.server.SimpleDB;
@@ -27,6 +28,8 @@ public class SimpleIJ {
 
                 if (cmd.startsWith("exit")) {
                     break;
+                } else if (cmd.startsWith("explain")) {
+                    doExplain(db, planner, cmd.substring("explain".length()).trim());
                 } else if (cmd.startsWith("select")) {
                     doQuery(db, planner, cmd);
                 } else {
@@ -43,6 +46,19 @@ public class SimpleIJ {
     }
 
 
+    // Prints the query plan without running the query.
+    private static void doExplain(SimpleDB db, Planner planner, String cmd) {
+        Transaction tx = db.newTx();
+        try {
+            Plan p = planner.createQueryPlan(cmd, tx);
+            System.out.print(Plans.explain(p));
+            tx.commit();
+        } catch (RuntimeException e) {
+            tx.rollback();
+            System.out.println("SimpleDB Exception: " + e.getMessage());
+        }
+    }
+
     private static void doQuery(SimpleDB db, Planner planner, String cmd) {
         Transaction tx = db.newTx();
         Scan s = null;
@@ -50,6 +66,8 @@ public class SimpleIJ {
         try {
             // Create the query plan
             Plan p = planner.createQueryPlan(cmd, tx);
+            System.out.println("Query plan:");
+            System.out.println(Plans.explain(p));
 
             Schema sch = p.schema();
 

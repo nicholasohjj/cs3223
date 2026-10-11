@@ -1,5 +1,6 @@
 package simpledb.plan;
 
+import java.util.List;
 import simpledb.query.NestedLoopsJoinScan;
 import simpledb.query.Predicate;
 import simpledb.query.Scan;
@@ -68,5 +69,13 @@ public class NestedLoopsJoinPlan implements Plan {
 
    public Schema schema() {
       return schema;
+   }
+
+   public List<Plan> children() {
+      return List.of(p1, p2);
+   }
+
+   public String toString() {
+      return "NestedLoopsJoin(" + joinpred + ")";
    }
 }

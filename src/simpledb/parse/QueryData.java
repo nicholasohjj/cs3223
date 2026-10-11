@@ -16,6 +16,7 @@ public class QueryData {
    private final Predicate pred;
    private final List<String> groupByFields;
    private final List<AggregationFn> aggFns;
+   private final boolean distinct;
 
    /**
     * Saves the field and table list and predicate.
@@ -38,12 +39,24 @@ public class QueryData {
    public QueryData(List<String> fields, Collection<String> tables, Predicate pred,
                      List<OrderByElement> orderByList, List<String> groupByFields,
                      List<AggregationFn> aggFns) {
+      this(fields, tables, pred, orderByList, groupByFields, aggFns, false);
+   }
+
+   /**
+    * Saves the clauses of the query, as above, and whether the
+    * select clause asked for distinct rows.
+    * @param distinct true if the query is a select distinct
+    */
+   public QueryData(List<String> fields, Collection<String> tables, Predicate pred,
+                     List<OrderByElement> orderByList, List<String> groupByFields,
+                     List<AggregationFn> aggFns, boolean distinct) {
       this.fields = fields;
       this.tables = tables;
       this.pred = pred;
       this.orderByList = orderByList;
       this.groupByFields = groupByFields;
       this.aggFns = aggFns;
+      this.distinct = distinct;
    }
 
    /**
@@ -106,8 +119,16 @@ public class QueryData {
       return !groupByFields.isEmpty() || !aggFns.isEmpty();
    }
 
+   /**
+    * Returns true if duplicate rows are to be removed from the output.
+    * @return true if the query is a select distinct
+    */
+   public boolean isDistinct() {
+      return distinct;
+   }
+
    public String toString() {
-      StringBuilder result = new StringBuilder("select ");
+      StringBuilder result = new StringBuilder(distinct ? "select distinct " : "select ");
       for (String fldname : fields)
          result.append(fldname).append(", ");
       result.setLength(result.length() - 2);

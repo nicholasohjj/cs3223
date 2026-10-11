@@ -1,5 +1,6 @@
 package simpledb.index.planner;
 
+import java.util.List;
 import simpledb.record.*;
 import simpledb.query.*;
 import simpledb.metadata.IndexInfo;
@@ -75,5 +76,13 @@ public class IndexSelectPlan implements Plan {
     */
    public Schema schema() {
       return p.schema(); 
+   }
+
+   public List<Plan> children() {
+      return List.of(p);
+   }
+
+   public String toString() {
+      return "IndexSelect(" + ii.fieldName() + " = " + val + ", " + ii.structure() + " index " + ii.indexName() + ")";
    }
 }

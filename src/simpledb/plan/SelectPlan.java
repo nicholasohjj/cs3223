@@ -1,5 +1,6 @@
 package simpledb.plan;
 
+import java.util.List;
 import simpledb.query.Predicate;
 import simpledb.query.Scan;
 import simpledb.query.SelectScan;
@@ -82,5 +83,13 @@ public class SelectPlan implements Plan {
     */
    public Schema schema() {
       return p.schema();
+   }
+
+   public List<Plan> children() {
+      return List.of(p);
+   }
+
+   public String toString() {
+      return "Select(" + pred + ")";
    }
 }

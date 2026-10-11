@@ -147,4 +147,12 @@ public class HashJoinPlan implements Plan {
    private static int materializedSize(Transaction tx, Plan p) {
       return new MaterializePlan(tx, p).blocksAccessed();
    }
+
+   public List<Plan> children() {
+      return List.of(p1, p2);
+   }
+
+   public String toString() {
+      return "HashJoin(" + fldname1 + " = " + fldname2 + ")";
+   }
 }

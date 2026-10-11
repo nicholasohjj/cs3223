@@ -48,11 +48,16 @@ public class BasicQueryPlanner implements QueryPlanner {
       if (data.isGrouped())
          p = new GroupByPlan(tx, p, data.groupByFields(), data.aggFns());
 
-      //Step 5: Sort, if requested
-      if (!data.orderByList().isEmpty())
+      //Step 5: Sort, if requested (a distinct query sorts in step 7 instead)
+      if (!data.isDistinct() && !data.orderByList().isEmpty())
          p = new SortPlan(tx, p, data.orderByList());
 
       //Step 6: Project on the field names
-      return new ProjectPlan(p, data.fields());
+      p = new ProjectPlan(p, data.fields());
+
+      //Step 7: Remove duplicate rows, if requested
+      if (data.isDistinct())
+         p = new DistinctPlan(tx, p, data.orderByList());
+      return p;
    }
 }
