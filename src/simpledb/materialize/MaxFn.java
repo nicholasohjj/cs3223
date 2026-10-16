@@ -1,6 +1,6 @@
 package simpledb.materialize;
 
-import static java.sql.Types.INTEGER;
+import static java.sql.Types.*;
 import simpledb.query.*;
 import simpledb.record.Schema;
 
@@ -11,7 +11,7 @@ import simpledb.record.Schema;
 public class MaxFn implements AggregationFn {
    private String fldname;
    private Constant val;
-   private boolean isint = true;
+   private int type = INTEGER;
    
    /**
     * Create a max aggregation function for the specified field.
@@ -47,7 +47,9 @@ public class MaxFn implements AggregationFn {
     * @see simpledb.materialize.AggregationFn#processEmpty()
     */
    public void processEmpty() {
-      val = isint ? new Constant(0) : new Constant("");
+      val = (type == INTEGER) ? new Constant(0)
+          : (type == DOUBLE) ? new Constant(0.0)
+          : new Constant("");
    }
 
    /**
@@ -55,7 +57,7 @@ public class MaxFn implements AggregationFn {
     * @see simpledb.materialize.AggregationFn#addToSchema(Schema, Schema)
     */
    public void addToSchema(Schema outsch, Schema insch) {
-      isint = insch.type(fldname) == INTEGER;
+      type = insch.type(fldname);
       outsch.addField(fieldName(), insch.type(fldname), insch.length(fldname));
    }
 
@@ -80,5 +82,13 @@ public class MaxFn implements AggregationFn {
     */
    public String toString() {
       return "max(" + fldname + ")";
+   }
+
+   public String argField() {
+      return fldname;
+   }
+
+   public AggregationFn withField(String fldname) {
+      return new MaxFn(fldname);
    }
 }

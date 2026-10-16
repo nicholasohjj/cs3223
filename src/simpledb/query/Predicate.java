@@ -146,4 +146,38 @@ public class Predicate {
          result += " and " + iter.next().toString();
       return result;
    }
+
+   /**
+    * Returns a copy of this predicate with its field names renamed.
+    * @param rename maps a field name to its new name
+    * @return the renamed predicate
+    */
+   public Predicate rename(java.util.function.Function<String,String> rename) {
+      Predicate result = new Predicate();
+      for (Term t : terms)
+         result.terms.add(t.rename(rename));
+      return result;
+   }
+
+   /**
+    * Returns the terms of this predicate.
+    */
+   public List<Term> terms() {
+      return Collections.unmodifiableList(terms);
+   }
+
+   /**
+    * Returns this predicate without the terms that satisfy the
+    * specified condition, e.g. a term that a join or index
+    * operator already guarantees.
+    * @param handled true for a term to leave out
+    * @return the remaining terms
+    */
+   public Predicate without(java.util.function.Predicate<Term> handled) {
+      Predicate result = new Predicate();
+      for (Term t : terms)
+         if (!handled.test(t))
+            result.terms.add(t);
+      return result;
+   }
 }

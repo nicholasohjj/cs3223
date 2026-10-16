@@ -37,8 +37,19 @@ public class MetadataMgr {
       idxmgr.createIndex(idxname, tblname, fldname, structure, tx);
    }
    
+   public boolean indexExists(String idxname, Transaction tx) {
+      return idxmgr.indexExists(idxname, tx);
+   }
+   
    public Map<String,IndexInfo> getIndexInfo(String tblname, Transaction tx) {
       return idxmgr.getIndexInfo(tblname, tx);
+   }
+   
+   /**
+    * Records that records of the table were changed (see StatMgr).
+    */
+   public void recordModified(String tblname, int count) {
+      statmgr.recordModified(tblname, count);
    }
    
    public StatInfo getStatInfo(String tblname, Layout layout, Transaction tx) {

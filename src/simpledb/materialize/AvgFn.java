@@ -1,6 +1,7 @@
 package simpledb.materialize;
 
 import simpledb.query.*;
+import simpledb.record.Schema;
 
 /**
  * The <i>avg</i> aggregation function.
@@ -11,7 +12,7 @@ import simpledb.query.*;
  */
 public class AvgFn implements AggregationFn {
    private String fldname;
-   private int sum;
+   private double sum;
    private int count;
 
    /**
@@ -28,7 +29,7 @@ public class AvgFn implements AggregationFn {
     * @see simpledb.materialize.AggregationFn#processFirst(simpledb.query.Scan)
     */
    public void processFirst(Scan s) {
-      sum = s.getVal(fldname).asInt();
+      sum = s.getVal(fldname).asDouble();
       count = 1;
    }
 
@@ -38,7 +39,7 @@ public class AvgFn implements AggregationFn {
     * @see simpledb.materialize.AggregationFn#processNext(simpledb.query.Scan)
     */
    public void processNext(Scan s) {
-      sum += s.getVal(fldname).asInt();
+      sum += s.getVal(fldname).asDouble();
       count++;
    }
 
@@ -49,6 +50,14 @@ public class AvgFn implements AggregationFn {
    public void processEmpty() {
       sum = 0;
       count = 0;
+   }
+
+   /**
+    * The average is a double, whatever the type of the field.
+    * @see simpledb.materialize.AggregationFn#addToSchema(Schema, Schema)
+    */
+   public void addToSchema(Schema outsch, Schema insch) {
+      outsch.addDoubleField(fieldName());
    }
 
    /**
@@ -64,7 +73,7 @@ public class AvgFn implements AggregationFn {
     * @see simpledb.materialize.AggregationFn#value()
     */
    public Constant value() {
-      return new Constant(count == 0 ? 0 : sum / count);
+      return new Constant(count == 0 ? 0.0 : sum / count);
    }
 
    /**
@@ -72,5 +81,13 @@ public class AvgFn implements AggregationFn {
     */
    public String toString() {
       return "avg(" + fldname + ")";
+   }
+
+   public String argField() {
+      return fldname;
+   }
+
+   public AggregationFn withField(String fldname) {
+      return new AvgFn(fldname);
    }
 }

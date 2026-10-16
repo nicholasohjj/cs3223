@@ -33,7 +33,8 @@ public class TempTable {
     * Open a table scan for the temporary table.
     */
    public UpdateScan open() {
-      return new TableScan(tx, tblname, layout);
+      // a temporary table is never recovered, so its changes are not logged
+      return new TableScan(tx, tblname, layout, false);
    }
    
    public String tableName() {

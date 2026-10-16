@@ -3,6 +3,7 @@ package simpledb.jdbc.embedded;
 import java.sql.*;
 import simpledb.record.Schema;
 import simpledb.query.Scan;
+import simpledb.query.Constant;
 import simpledb.plan.Plan;
 import simpledb.jdbc.ResultSetAdapter;
 
@@ -48,7 +49,8 @@ public class EmbeddedResultSet extends ResultSetAdapter {
    public int getInt(String fldname) throws SQLException {
       try {
          fldname = fldname.toLowerCase(); // to ensure case-insensitivity
-         return s.getInt(fldname);
+         Constant val = s.getVal(fldname);   // a double is truncated, as JDBC allows
+         return (val.type() == java.sql.Types.DOUBLE) ? (int) val.asDouble() : val.asInt();
       }
       catch(RuntimeException e) {
          conn.rollback();
@@ -63,7 +65,22 @@ public class EmbeddedResultSet extends ResultSetAdapter {
    public String getString(String fldname) throws SQLException {
       try {
          fldname = fldname.toLowerCase(); // to ensure case-insensitivity
-         return s.getString(fldname);
+         return s.getVal(fldname).toString();   // any value can be read as a string
+      }
+      catch(RuntimeException e) {
+         conn.rollback();
+         throw new SQLException(e);
+      }
+   }
+
+   /**
+    * Returns the double value of the specified field;
+    * an int field is widened to a double.
+    */
+   public double getDouble(String fldname) throws SQLException {
+      try {
+         fldname = fldname.toLowerCase(); // to ensure case-insensitivity
+         return s.getVal(fldname).asDouble();
       }
       catch(RuntimeException e) {
          conn.rollback();

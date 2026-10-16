@@ -1,5 +1,6 @@
 package simpledb.query;
 
+import java.util.function.Function;
 import simpledb.plan.Plan;
 import simpledb.record.*;
 
@@ -61,6 +62,15 @@ public class Term {
     * @return the integer reduction factor.
     */
    public int reductionFactor(Plan p) {
+      // a term comparing two constants keeps all records or none
+      if (!lhs.isFieldName() && !rhs.isFieldName())
+         return isSatisfied(null) ? 1 : Integer.MAX_VALUE;
+      // a range comparison is assumed to keep a third of the records,
+      // and an inequality (nearly) all of them
+      if (opr.equals("!=") || opr.equals("<>"))
+         return 1;
+      if (!opr.equals("="))
+         return 3;
       String lhsName, rhsName;
       if (lhs.isFieldName() && rhs.isFieldName()) {
          lhsName = lhs.asFieldName();
@@ -139,5 +149,50 @@ public class Term {
    
    public String toString() {
       return lhs.toString() + opr + rhs.toString();
+   }
+
+   /**
+    * Returns a copy of this term with its field names renamed.
+    * @param rename maps a field name to its new name
+    * @return the renamed term
+    */
+   public Term rename(Function<String,String> rename) {
+      return new Term(lhs.rename(rename), rhs.rename(rename), opr);
+   }
+
+   /**
+    * Returns the comparison operator of this term, e.g. "=" or "<=".
+    */
+   public String operator() {
+      return opr;
+   }
+
+   public Expression lhs() {
+      return lhs;
+   }
+
+   public Expression rhs() {
+      return rhs;
+   }
+
+   /**
+    * Returns true if this term is "f1 = f2" (in either order),
+    * for the two specified fields.
+    */
+   public boolean equatesFields(String f1, String f2) {
+      return opr.equals("=") && lhs.isFieldName() && rhs.isFieldName()
+            && ((lhs.asFieldName().equals(f1) && rhs.asFieldName().equals(f2))
+             || (lhs.asFieldName().equals(f2) && rhs.asFieldName().equals(f1)));
+   }
+
+   /**
+    * Returns true if this term is "f = c" (in either order),
+    * for the specified field and constant.
+    */
+   public boolean equatesFieldWith(String fldname, Constant val) {
+      if (!opr.equals("="))
+         return false;
+      return (lhs.isFieldName() && lhs.asFieldName().equals(fldname) && !rhs.isFieldName() && rhs.asConstant().equals(val))
+          || (rhs.isFieldName() && rhs.asFieldName().equals(fldname) && !lhs.isFieldName() && lhs.asConstant().equals(val));
    }
 }

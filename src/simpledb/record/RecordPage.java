@@ -1,6 +1,6 @@
 package simpledb.record;
 
-import static java.sql.Types.INTEGER;
+import static java.sql.Types.*;
 import simpledb.file.*;
 import simpledb.tx.Transaction;
 
@@ -13,12 +13,23 @@ public class RecordPage {
    private Transaction tx;
    private BlockId blk;
    private Layout layout;
+   private boolean logged = true;
 
    public RecordPage(Transaction tx, BlockId blk, Layout layout) {
       this.tx = tx;
       this.blk = blk;
       this.layout = layout;
       tx.pin(blk);
+   }
+
+   /**
+    * Creates a record page whose changes are logged only if
+    * logged is true.  A temporary table is never recovered,
+    * so its changes need not be logged.
+    */
+   public RecordPage(Transaction tx, BlockId blk, Layout layout, boolean logged) {
+      this(tx, blk, layout);
+      this.logged = logged;
    }
 
    /**
@@ -49,9 +60,31 @@ public class RecordPage {
     * @param fldname the name of the field
     * @param val the integer value stored in that field
     */
+   /**
+    * Return the double value stored for the
+    * specified field of a specified slot.
+    * @param fldname the name of the field.
+    * @return the double stored in that field
+    */
+   public double getDouble(int slot, String fldname) {
+      int fldpos = offset(slot) + layout.offset(fldname);
+      return tx.getDouble(blk, fldpos);
+   }
+
+   /**
+    * Store a double at the specified field
+    * of the specified slot.
+    * @param fldname the name of the field
+    * @param val the double value stored in that field
+    */
+   public void setDouble(int slot, String fldname, double val) {
+      int fldpos = offset(slot) + layout.offset(fldname);
+      tx.setDouble(blk, fldpos, val, logged);
+   }
+
    public void setInt(int slot, String fldname, int val) {
       int fldpos = offset(slot) + layout.offset(fldname);
-      tx.setInt(blk, fldpos, val, true);
+      tx.setInt(blk, fldpos, val, logged);
    }
 
    /**
@@ -62,7 +95,7 @@ public class RecordPage {
     */
    public void setString(int slot, String fldname, String val) {
       int fldpos = offset(slot) + layout.offset(fldname);
-      tx.setString(blk, fldpos, val, true);
+      tx.setString(blk, fldpos, val, logged);
    }
    
    public void delete(int slot) {
@@ -82,6 +115,8 @@ public class RecordPage {
             int fldpos = offset(slot) + layout.offset(fldname);
             if (sch.type(fldname) == INTEGER)
                tx.setInt(blk, fldpos, 0, false);
+            else if (sch.type(fldname) == DOUBLE)
+               tx.setDouble(blk, fldpos, 0.0, false);
             else
                tx.setString(blk, fldpos, "", false);
          }
@@ -110,7 +145,7 @@ public class RecordPage {
     * Set the record's empty/inuse flag.
     */
    private void setFlag(int slot, int flag) {
-      tx.setInt(blk, offset(slot), flag, true); 
+      tx.setInt(blk, offset(slot), flag, logged); 
    }
 
    private int searchAfter(int slot, int flag) {

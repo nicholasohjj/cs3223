@@ -23,17 +23,27 @@ public class BasicQueryPlanner implements QueryPlanner {
     * and finally it projects on the field list. 
     */
    public Plan createPlan(QueryData data, Transaction tx) {
-      //Step 1: Create a plan for each mentioned table or view.
+      if (data instanceof SetQueryData)
+         return SetQueryPlanner.createPlan((SetQueryData) data, this, tx);
+
+      //Step 0: Resolve every field name to its qualified "alias.field" form
+      QueryResolver resolver = new QueryResolver(data, mdm, tx);
+      data = resolver.query();
+
+      //Step 1: Create a plan for each mentioned table or view,
+      //        whose fields are qualified by the table's alias.
      List<Plan> plans = new ArrayList<>();
+      Iterator<String> aliases = data.aliases().iterator();
       for (String tblname : data.tables()) {
+         String alias = aliases.next();
          String viewdef = mdm.getViewDef(tblname, tx);
          if (viewdef != null) { // Recursively plan the view.
             Parser parser = new Parser(viewdef);
             QueryData viewdata = parser.query();
-            plans.add(createPlan(viewdata, tx));
+            plans.add(RenamePlan.qualify(createPlan(viewdata, tx), alias));
          }
          else
-            plans.add(new TablePlan(tx, tblname, mdm));
+            plans.add(new TablePlan(tx, tblname, alias, mdm));
       }
       
       //Step 2: Create the product of all table plans
@@ -58,6 +68,8 @@ public class BasicQueryPlanner implements QueryPlanner {
       //Step 7: Remove duplicate rows, if requested
       if (data.isDistinct())
          p = new DistinctPlan(tx, p, data.orderByList());
-      return p;
+
+      //Step 8: Give the output fields the names the query used
+      return new RenamePlan(p, resolver.outputNames());
    }
 }

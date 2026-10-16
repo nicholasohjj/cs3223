@@ -1,6 +1,6 @@
 package simpledb.metadata;
 
-import static java.sql.Types.INTEGER;
+import static java.sql.Types.*;
 
 import simpledb.parse.BadSyntaxException;
 import simpledb.tx.Transaction;
@@ -112,6 +112,8 @@ public class IndexInfo {
       sch.addIntField("id");
       if (tblSchema.type(fldname) == INTEGER)
          sch.addIntField("dataval");
+      else if (tblSchema.type(fldname) == DOUBLE)
+         sch.addDoubleField("dataval");
       else {
          int fldlen = tblSchema.length(fldname);
          sch.addStringField("dataval", fldlen);

@@ -63,6 +63,22 @@ class IndexMgr {
     * @param tx the calling transaction
     * @return a map of IndexInfo objects, keyed by their field names
     */
+   /**
+    * Return true if an index of the specified name exists,
+    * on any table.
+    * @param idxname the name of the index
+    * @param tx the calling transaction
+    * @return true if the index name is in use
+    */
+   public boolean indexExists(String idxname, Transaction tx) {
+      TableScan ts = new TableScan(tx, "idxcat", layout);
+      boolean found = false;
+      while (!found && ts.next())
+         found = ts.getString("indexname").equals(idxname);
+      ts.close();
+      return found;
+   }
+
    public Map<String,IndexInfo> getIndexInfo(String tblname, Transaction tx) {
       Map<String,IndexInfo> result = new HashMap<String,IndexInfo>();
       TableScan ts = new TableScan(tx, "idxcat", layout);

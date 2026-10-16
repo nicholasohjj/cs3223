@@ -7,160 +7,132 @@ import simpledb.record.*;
 
 /**
  * The Scan class for the <i>sort</i> operator.
+ * It merges any number of sorted runs on the fly:
+ * each call to next moves to the smallest current
+ * record among the runs.
  * @author Edward Sciore
  */
-/**
- * @author sciore
- *
- */
 public class SortScan implements Scan {
-   private UpdateScan s1, s2=null, currentscan=null;
+   private List<UpdateScan> scans = new ArrayList<>();
+   private boolean[] hasmore;
+   private int current = -1;
    private RecordComparator comp;
-   private boolean hasmore1, hasmore2=false;
+   private Schema sch;
    private List<RID> savedposition;
-   private UpdateScan savedcurrentscan;
-   private boolean savedhasmore1, savedhasmore2;
-   
+   private boolean[] savedhasmore;
+   private int savedcurrent;
+
    /**
-    * Create a sort scan, given a list of 1 or 2 runs.
-    * If there is only 1 run, then s2 will be null and
-    * hasmore2 will be false.
+    * Create a sort scan, given a non-empty list of sorted runs.
     * @param runs the list of runs
     * @param comp the record comparator
     */
    public SortScan(List<TempTable> runs, RecordComparator comp) {
       this.comp = comp;
-      s1 = (UpdateScan) runs.get(0).open();
-      hasmore1 = s1.next();
-      if (runs.size() > 1) {
-         s2 = (UpdateScan) runs.get(1).open();
-         hasmore2 = s2.next();
-      }
+      sch = runs.get(0).getLayout().schema();
+      for (TempTable run : runs)
+         scans.add(run.open());
+      hasmore = new boolean[scans.size()];
+      beforeFirst();
    }
-   
+
    /**
     * Position the scan before the first record in sorted order.
-    * Internally, it moves to the first record of each underlying scan.
-    * The variable currentscan is set to null, indicating that there is
-    * no current scan.
+    * Internally, it moves to the first record of each run.
     * @see simpledb.query.Scan#beforeFirst()
     */
    public void beforeFirst() {
-      currentscan = null;
-      s1.beforeFirst();
-      hasmore1 = s1.next();
-      if (s2 != null) {
-         s2.beforeFirst();
-         hasmore2 = s2.next();
+      current = -1;
+      for (int i=0; i<scans.size(); i++) {
+         scans.get(i).beforeFirst();
+         hasmore[i] = scans.get(i).next();
       }
    }
-   
+
    /**
     * Move to the next record in sorted order.
-    * First, the current scan is moved to the next record.
-    * Then the lowest record of the two scans is found, and that
-    * scan is chosen to be the new current scan.
+    * First, the current run is moved to its next record.
+    * Then the smallest current record among the runs that
+    * still have records becomes the current record.
     * @see simpledb.query.Scan#next()
     */
    public boolean next() {
-      if (currentscan != null) {
-         if (currentscan == s1)
-            hasmore1 = s1.next();
-         else if (currentscan == s2)
-            hasmore2 = s2.next();
-      }
-      
-      if (!hasmore1 && !hasmore2)
-         return false;
-      else if (hasmore1 && hasmore2) {
-         if (comp.compare(s1, s2) < 0)
-            currentscan = s1;
-         else
-            currentscan = s2;
-      }
-      else if (hasmore1)
-         currentscan = s1;
-      else if (hasmore2)
-         currentscan = s2;
-      return true;
+      if (current >= 0)
+         hasmore[current] = scans.get(current).next();
+      current = -1;
+      for (int i=0; i<scans.size(); i++)
+         if (hasmore[i] && (current < 0 || comp.compare(scans.get(i), scans.get(current)) < 0))
+            current = i;
+      return current >= 0;
    }
-   
+
    /**
-    * Close the two underlying scans.
+    * Close all of the runs.
     * @see simpledb.query.Scan#close()
     */
    public void close() {
-      s1.close();
-      if (s2 != null)
-         s2.close();
+      for (UpdateScan s : scans)
+         s.close();
    }
-   
+
    /**
-    * Get the Constant value of the specified field
-    * of the current scan.
+    * Get the value of the specified field
+    * of the current record.
     * @see simpledb.query.Scan#getVal(java.lang.String)
     */
    public Constant getVal(String fldname) {
-      return currentscan.getVal(fldname);
+      return scans.get(current).getVal(fldname);
    }
-   
+
    /**
     * Get the integer value of the specified field
-    * of the current scan.
+    * of the current record.
     * @see simpledb.query.Scan#getInt(java.lang.String)
     */
    public int getInt(String fldname) {
-      return currentscan.getInt(fldname);
+      return scans.get(current).getInt(fldname);
    }
-   
+
    /**
     * Get the string value of the specified field
-    * of the current scan.
+    * of the current record.
     * @see simpledb.query.Scan#getString(java.lang.String)
     */
    public String getString(String fldname) {
-      return currentscan.getString(fldname);
+      return scans.get(current).getString(fldname);
    }
-   
+
    /**
-    * Return true if the specified field is in the current scan.
+    * Return true if the specified field is in the sorted records.
+    * This uses the schema, so it is valid even before the
+    * first call to next.
     * @see simpledb.query.Scan#hasField(java.lang.String)
     */
    public boolean hasField(String fldname) {
-      return currentscan.hasField(fldname);
+      return sch.hasField(fldname);
    }
-   
+
    /**
     * Save the position of the current record,
     * so that it can be restored at a later time.
-    * In addition to the record ids of the two runs,
-    * this saves which run is current and whether each
-    * run has more records, since those also describe
-    * where the merge was up to when the position was saved.
+    * The position of every run is saved, so that the
+    * merge resumes exactly where it was.
     */
    public void savePosition() {
-      RID rid1 = s1.getRid();
-      RID rid2 = (s2 == null) ? null : s2.getRid();
-      savedposition = Arrays.asList(rid1,rid2);
-      savedcurrentscan = currentscan;
-      savedhasmore1 = hasmore1;
-      savedhasmore2 = hasmore2;
+      savedposition = new ArrayList<>();
+      for (UpdateScan s : scans)
+         savedposition.add(s.getRid());
+      savedhasmore = hasmore.clone();
+      savedcurrent = current;
    }
 
    /**
     * Move the scan to its previously-saved position.
-    * This restores the record ids of the two runs, as well as
-    * which run was current and each run's hasmore status,
-    * so that the merge resumes exactly where it left off.
     */
    public void restorePosition() {
-      RID rid1 = savedposition.get(0);
-      RID rid2 = savedposition.get(1);
-      s1.moveToRid(rid1);
-      if (rid2 != null)
-         s2.moveToRid(rid2);
-      currentscan = savedcurrentscan;
-      hasmore1 = savedhasmore1;
-      hasmore2 = savedhasmore2;
+      for (int i=0; i<scans.size(); i++)
+         scans.get(i).moveToRid(savedposition.get(i));
+      hasmore = savedhasmore.clone();
+      current = savedcurrent;
    }
 }

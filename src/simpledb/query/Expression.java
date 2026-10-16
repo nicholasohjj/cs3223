@@ -1,5 +1,6 @@
 package simpledb.query;
 
+import java.util.function.Function;
 import simpledb.record.*;
 
 /**
@@ -72,5 +73,16 @@ public class Expression {
          return fldname;
       // quote string constants, so that the text can be parsed again (e.g. a view definition)
       return (val.asString() != null) ? "'" + val.asString() + "'" : val.toString();
+   }
+
+   /**
+    * Returns a copy of this expression in which a field name
+    * is replaced by the result of the specified function
+    * (used to resolve field names to their qualified form).
+    * @param rename maps a field name to its new name
+    * @return the renamed expression
+    */
+   public Expression rename(Function<String,String> rename) {
+      return (val != null) ? this : new Expression(rename.apply(fldname));
    }
 }

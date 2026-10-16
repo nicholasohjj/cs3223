@@ -26,6 +26,8 @@ public class Parser {
    public Constant constant() {
       if (lex.matchStringConstant())
          return new Constant(lex.eatStringConstant());
+      else if (lex.matchDoubleConstant())
+         return new Constant(lex.eatDoubleConstant());
       else
          return new Constant(lex.eatIntConstant());
    }
@@ -75,9 +77,60 @@ public class Parser {
       return new OrderByElement(fld, asc);
    }
    
+   /**
+    * Throws an exception if anything follows the statement that
+    * has been parsed, e.g. a misspelled clause after a query.
+    */
+   public void checkEnd() {
+      if (!lex.matchEnd())
+         throw new BadSyntaxException("unexpected text at " + lex.currentToken());
+   }
+
 // Methods for parsing queries
    
+   /**
+    * Parses a query: a select statement, or a set operation between
+    * queries, optionally followed by an order by clause that sorts
+    * the whole result.  Intersect binds more tightly than union and
+    * except, which are evaluated from left to right, as in SQL.
+    */
    public QueryData query() {
+      QueryData q = intersectQuery();
+      while (lex.matchKeyword("union") || lex.matchKeyword("except")) {
+         String op = lex.matchKeyword("union") ? "union" : "except";
+         lex.eatKeyword(op);
+         boolean all = eatAll();
+         q = new SetQueryData(q, op, all, intersectQuery(), new ArrayList<>());
+      }
+      if (lex.matchKeyword("order")) {
+         lex.eatKeyword("order");
+         lex.eatKeyword("by");
+         q = q.withOrderBy(orderByList());
+      }
+      return q;
+   }
+
+   private QueryData intersectQuery() {
+      QueryData q = selectQuery();
+      while (lex.matchKeyword("intersect")) {
+         lex.eatKeyword("intersect");
+         boolean all = eatAll();
+         q = new SetQueryData(q, "intersect", all, selectQuery(), new ArrayList<>());
+      }
+      return q;
+   }
+
+   private boolean eatAll() {
+      if (!lex.matchKeyword("all"))
+         return false;
+      lex.eatKeyword("all");
+      return true;
+   }
+
+   /**
+    * Parses a single select statement, without an order by clause.
+    */
+   private QueryData selectQuery() {
       lex.eatKeyword("select");
       boolean distinct = false;
       if (lex.matchKeyword("distinct")) {
@@ -88,7 +141,9 @@ public class Parser {
       List<AggregationFn> aggFns = new ArrayList<>();
       selectList(fields, aggFns);
       lex.eatKeyword("from");
-      Collection<String> tables = tableList();
+      List<String> tables = new ArrayList<>();
+      List<String> aliases = new ArrayList<>();
+      tableList(tables, aliases);
       Predicate pred = new Predicate();
       if (lex.matchKeyword("where")) {
          lex.eatKeyword("where");
@@ -100,40 +155,9 @@ public class Parser {
          lex.eatKeyword("by");
          groupByFields = fieldList();
       }
-      List<OrderByElement> orderByList = new ArrayList<>();
-      if (lex.matchKeyword("order")) {
-         lex.eatKeyword("order");
-         lex.eatKeyword("by");
-         orderByList = orderByList();
-      }
-      if (!groupByFields.isEmpty() || !aggFns.isEmpty())
-         checkGroupedFields(fields, orderByList, groupByFields, aggFns);
-      // the distinct sort also does the ordering, so it can only
-      // order on fields that appear in the output
-      if (distinct)
-         for (OrderByElement e : orderByList)
-            if (!fields.contains(e.field()))
-               throw new BadSyntaxException();
-
-      return new QueryData(fields, tables, pred, orderByList, groupByFields, aggFns, distinct);
-   }
-
-   /**
-    * In a grouped query, each selected or ordered field must be
-    * a group by field or an aggregate, since no other field
-    * has a single value per group.
-    */
-   private void checkGroupedFields(List<String> fields, List<OrderByElement> orderByList,
-                                   List<String> groupByFields, List<AggregationFn> aggFns) {
-      Set<String> allowed = new HashSet<>(groupByFields);
-      for (AggregationFn fn : aggFns)
-         allowed.add(fn.fieldName());
-      for (String fldname : fields)
-         if (!allowed.contains(fldname))
-            throw new BadSyntaxException();
-      for (OrderByElement e : orderByList)
-         if (!allowed.contains(e.field()))
-            throw new BadSyntaxException();
+      // checks that depend on what the names refer to (such as grouped
+      // fields) are made once the names are resolved; see QueryResolver
+      return new QueryData(fields, tables, aliases, pred, new ArrayList<>(), groupByFields, aggFns, distinct);
    }
 
    /**
@@ -189,14 +213,19 @@ public class Parser {
       }
    }
    
-   private Collection<String> tableList() {
-      Collection<String> L = new ArrayList<String>();
-      L.add(lex.eatId());
+   /**
+    * Parses the from clause: a list of table names, each
+    * optionally followed by an alias, e.g. "student s, enroll".
+    * @param tables the list to be filled with table names
+    * @param aliases the list to be filled with each table's alias (or null)
+    */
+   private void tableList(List<String> tables, List<String> aliases) {
+      tables.add(lex.eatId());
+      aliases.add(lex.matchId() ? lex.eatId() : null);
       if (lex.matchDelim(',')) {
          lex.eatDelim(',');
-         L.addAll(tableList());
+         tableList(tables, aliases);
       }
-      return L;
    }
    
 // Methods for parsing the various update commands
@@ -320,6 +349,10 @@ public class Parser {
       if (lex.matchKeyword("int")) {
          lex.eatKeyword("int");
          schema.addIntField(fldname);
+      }
+      else if (lex.matchKeyword("double") || lex.matchKeyword("float")) {
+         lex.eatKeyword(lex.matchKeyword("double") ? "double" : "float");
+         schema.addDoubleField(fldname);
       }
       else {
          lex.eatKeyword("varchar");

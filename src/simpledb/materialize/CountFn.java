@@ -70,4 +70,12 @@ public class CountFn implements AggregationFn {
    public String toString() {
       return "count(" + fldname + ")";
    }
+
+   public String argField() {
+      return fldname;
+   }
+
+   public AggregationFn withField(String fldname) {
+      return new CountFn(fldname);
+   }
 }

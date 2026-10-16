@@ -9,6 +9,7 @@ import simpledb.metadata.MetadataMgr;
 import simpledb.plan.*;
 import simpledb.index.planner.IndexUpdatePlanner;
 import simpledb.opt.HeuristicQueryPlanner;
+import simpledb.opt.CostBasedQueryPlanner;
 
 /**
  * The class that configures the system.
@@ -55,9 +56,12 @@ public class SimpleDB {
          tx.recover();
       }
       mdm = new MetadataMgr(isnew, tx);
-      QueryPlanner qp = new HeuristicQueryPlanner(mdm);
+      // the query optimizer: heuristic by default, or cost-based
+      // when run with -Dsimpledb.planner=cost
+      QueryPlanner qp = "cost".equals(System.getProperty("simpledb.planner"))
+            ? new CostBasedQueryPlanner(mdm) : new HeuristicQueryPlanner(mdm);
       UpdatePlanner up = new IndexUpdatePlanner(mdm);
-      planner = new Planner(qp, up);
+      planner = new Planner(qp, up, mdm);
       tx.commit();
    }
    

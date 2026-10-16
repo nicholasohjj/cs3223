@@ -34,10 +34,26 @@ public class RecordComparator implements Comparator<Scan> {
     * @return the result of comparing each scan's current record according to the field list
     */
    public int compare(Scan s1, Scan s2) {
+      return compare(s1::getVal, s2::getVal);
+   }
+
+   /**
+    * Compare two records held in memory, as maps from
+    * field names to values, in the same way.
+    * @param r1 the first record
+    * @param r2 the second record
+    * @return the result of comparing the records according to the field list
+    */
+   public int compare(Map<String,Constant> r1, Map<String,Constant> r2) {
+      return compare(r1::get, r2::get);
+   }
+
+   private int compare(java.util.function.Function<String,Constant> r1,
+                       java.util.function.Function<String,Constant> r2) {
       for (OrderByElement e : orderByFields) {
          String fldname = e.field();
-         Constant val1 = s1.getVal(fldname);
-         Constant val2 = s2.getVal(fldname);
+         Constant val1 = r1.apply(fldname);
+         Constant val2 = r2.apply(fldname);
          int result = val1.compareTo(val2);
          if (result != 0)
             return e.isAscending() ? result: -result;

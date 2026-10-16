@@ -1,6 +1,6 @@
 package simpledb.record;
 
-import static java.sql.Types.INTEGER;
+import static java.sql.Types.*;
 import simpledb.file.BlockId;
 import simpledb.query.*;
 import simpledb.tx.Transaction;
@@ -16,9 +16,20 @@ public class TableScan implements UpdateScan {
    private RecordPage rp;
    private String filename;
    private int currentslot;
+   private boolean logged = true;
 
    public TableScan(Transaction tx, String tblname, Layout layout) {
+      this(tx, tblname, layout, true);
+   }
+
+   /**
+    * Creates a table scan whose changes are logged only if
+    * logged is true; used for temporary tables, which are
+    * never recovered.
+    */
+   public TableScan(Transaction tx, String tblname, Layout layout, boolean logged) {
       this.tx = tx;
+      this.logged = logged;
       this.layout = layout;
       filename = tblname + ".tbl";
       if (tx.size(filename) == 0)
@@ -52,9 +63,16 @@ public class TableScan implements UpdateScan {
       return rp.getString(currentslot, fldname);
    }
 
+   public double getDouble(String fldname) {
+      return rp.getDouble(currentslot, fldname);
+   }
+
    public Constant getVal(String fldname) {
-      if (layout.schema().type(fldname) == INTEGER)
+      int type = layout.schema().type(fldname);
+      if (type == INTEGER)
          return new Constant(getInt(fldname));
+      else if (type == DOUBLE)
+         return new Constant(getDouble(fldname));
       else
          return new Constant(getString(fldname));
    }
@@ -78,9 +96,20 @@ public class TableScan implements UpdateScan {
       rp.setString(currentslot, fldname, val);
    }
 
+   public void setDouble(String fldname, double val) {
+      rp.setDouble(currentslot, fldname, val);
+   }
+
+   /**
+    * Store the value in the specified field.  An integer
+    * value is widened when stored in a double field.
+    */
    public void setVal(String fldname, Constant val) {
-      if (layout.schema().type(fldname) == INTEGER)
+      int type = layout.schema().type(fldname);
+      if (type == INTEGER)
          setInt(fldname, val.asInt());
+      else if (type == DOUBLE)
+         setDouble(fldname, val.asDouble());
       else
          setString(fldname, val.asString());
    }
@@ -103,7 +132,7 @@ public class TableScan implements UpdateScan {
    public void moveToRid(RID rid) {
       close();
       BlockId blk = new BlockId(filename, rid.blockNumber());
-      rp = new RecordPage(tx, blk, layout);
+      rp = new RecordPage(tx, blk, layout, logged);
       currentslot = rid.slot();
    }
 
@@ -116,14 +145,14 @@ public class TableScan implements UpdateScan {
    private void moveToBlock(int blknum) {
       close();
       BlockId blk = new BlockId(filename, blknum);
-      rp = new RecordPage(tx, blk, layout);
+      rp = new RecordPage(tx, blk, layout, logged);
       currentslot = -1;
    }
 
    private void moveToNewBlock() {
       close();
       BlockId blk = tx.append(filename);
-      rp = new RecordPage(tx, blk, layout);
+      rp = new RecordPage(tx, blk, layout, logged);
       rp.format();
       currentslot = -1;
    }

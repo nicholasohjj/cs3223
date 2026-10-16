@@ -38,6 +38,14 @@ public class Schema {
    }
    
    /**
+    * Add a double field to the schema.
+    * @param fldname the name of the field
+    */
+   public void addDoubleField(String fldname) {
+      addField(fldname, DOUBLE, 0);
+   }
+   
+   /**
     * Add a string field to the schema.
     * The length is the conceptual length of the field.
     * For example, if the field is defined as varchar(8),

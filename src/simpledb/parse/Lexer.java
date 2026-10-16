@@ -19,7 +19,8 @@ public class Lexer {
    public Lexer(String s) {
       initKeywords();
       tok = new StreamTokenizer(new StringReader(s));
-      tok.ordinaryChar('.');   //disallow "." in identifiers
+      // "." is a number constituent, so decimals such as 3.5 are single
+      // number tokens, and qualified names such as s.sid are single words
       tok.ordinaryChar('<');
       tok.ordinaryChar('>');
       tok.ordinaryChar('=');
@@ -46,7 +47,16 @@ public class Lexer {
     * @return true if the current token is an integer
     */
    public boolean matchIntConstant() {
-      return tok.ttype == StreamTokenizer.TT_NUMBER;
+      return tok.ttype == StreamTokenizer.TT_NUMBER && tok.nval == Math.rint(tok.nval);
+   }
+
+   /**
+    * Returns true if the current token is a number with a
+    * fractional part, such as 3.5.
+    * @return true if the current token is a double
+    */
+   public boolean matchDoubleConstant() {
+      return tok.ttype == StreamTokenizer.TT_NUMBER && tok.nval != Math.rint(tok.nval);
    }
    
    /**
@@ -62,6 +72,26 @@ public class Lexer {
     * @param w the keyword string
     * @return true if that keyword is the current token
     */
+   /**
+    * Returns true if the whole statement has been read.
+    * @return true if there are no more tokens
+    */
+   public boolean matchEnd() {
+      return tok.ttype == StreamTokenizer.TT_EOF;
+   }
+
+   /**
+    * Returns the current token as text, for error messages.
+    * @return a description of the current token
+    */
+   public String currentToken() {
+      if (tok.ttype == StreamTokenizer.TT_WORD || tok.ttype == '\'')
+         return tok.sval;
+      if (tok.ttype == StreamTokenizer.TT_NUMBER)
+         return Double.toString(tok.nval).replaceAll("\\.0$", "");
+      return String.valueOf((char) tok.ttype);
+   }
+
    public boolean matchKeyword(String w) {
       return tok.ttype == StreamTokenizer.TT_WORD && tok.sval.equals(w);
    }
@@ -137,6 +167,20 @@ public class Lexer {
     * Otherwise, returns that string and moves to the next token.
     * @return the string value of the current token
     */
+   /**
+    * Throws an exception if the current token is not
+    * a double.
+    * Otherwise, returns that double and moves to the next token.
+    * @return the double value of the current token
+    */
+   public double eatDoubleConstant() {
+      if (!matchDoubleConstant())
+         throw new BadSyntaxException();
+      double d = tok.nval;
+      nextToken();
+      return d;
+   }
+   
    public String eatStringConstant() {
       if (!matchStringConstant())
          throw new BadSyntaxException();
@@ -185,6 +229,7 @@ public class Lexer {
       keywords = Arrays.asList("select", "from", "where", "and",
                                "insert", "into", "values", "delete", "update", "set", 
                                "create", "table", "int", "varchar", "view", "as", "index", "on", "order", "by", "asc", "desc", "group",
-                               "using", "hash", "btree", "distinct");
+                               "using", "hash", "btree", "distinct", "double", "float",
+                               "union", "intersect", "except", "all");
    }
 }

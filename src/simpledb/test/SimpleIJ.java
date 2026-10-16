@@ -10,7 +10,7 @@ import simpledb.tx.Transaction;
 
 import java.util.Scanner;
 
-import static java.sql.Types.INTEGER;
+import static java.sql.Types.*;
 
 public class SimpleIJ {
 
@@ -101,6 +101,8 @@ public class SimpleIJ {
                     if (sch.type(fldname) == INTEGER) {
                         int val = s.getInt(fldname);
                         System.out.format(fmt + "d", val);
+                    } else if (sch.type(fldname) == DOUBLE) {
+                        System.out.format(fmt + "s", s.getVal(fldname));
                     } else {
                         String val = s.getString(fldname);
                         System.out.format(fmt + "s", val);
@@ -144,7 +146,7 @@ public class SimpleIJ {
         int fldtype = sch.type(fldname);
 
         int fldlength =
-                (fldtype == INTEGER) ? 6 : sch.length(fldname);
+                (fldtype == INTEGER) ? 6 : (fldtype == DOUBLE) ? 20 : sch.length(fldname);
 
         return Math.max(fldname.length(), fldlength) + 1;
     }

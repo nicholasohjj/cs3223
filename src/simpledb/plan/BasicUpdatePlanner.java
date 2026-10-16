@@ -27,6 +27,7 @@ public class BasicUpdatePlanner implements UpdatePlanner {
          count++;
       }
       us.close();
+      recordModified(data.tableName(), count, tx);
       return count;
    }
    
@@ -41,6 +42,7 @@ public class BasicUpdatePlanner implements UpdatePlanner {
          count++;
       }
       us.close();
+      recordModified(data.tableName(), count, tx);
       return count;
    }
    
@@ -54,6 +56,7 @@ public class BasicUpdatePlanner implements UpdatePlanner {
          us.setVal(fldname, val);
       }
       us.close();
+      recordModified(data.tableName(), 1, tx);
       return 1;
    }
    
@@ -69,5 +72,12 @@ public class BasicUpdatePlanner implements UpdatePlanner {
    public int executeCreateIndex(CreateIndexData data, Transaction tx) {
       mdm.createIndex(data.indexName(), data.tableName(), data.fieldName(), data.structure(), tx);
       return 0;  
+   }
+
+   // keeps the table's statistics up to date: the change, or its undoing
+   // if the transaction rolls back, counts towards recomputing them
+   private void recordModified(String tblname, int count, Transaction tx) {
+      mdm.recordModified(tblname, count);
+      tx.onRollback(() -> mdm.recordModified(tblname, count));
    }
 }

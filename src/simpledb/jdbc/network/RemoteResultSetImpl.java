@@ -53,7 +53,8 @@ class RemoteResultSetImpl extends UnicastRemoteObject implements RemoteResultSet
    public int getInt(String fldname) throws RemoteException {
 		try {
 	      fldname = fldname.toLowerCase(); // to ensure case-insensitivity
-	      return s.getInt(fldname);
+	      Constant val = s.getVal(fldname);   // a double is truncated, as JDBC allows
+         return (val.type() == java.sql.Types.DOUBLE) ? (int) val.asDouble() : val.asInt();
       }
       catch(RuntimeException e) {
          rconn.rollback();
@@ -66,10 +67,21 @@ class RemoteResultSetImpl extends UnicastRemoteObject implements RemoteResultSet
     * by returning the corresponding value on the saved scan.
     * @see simpledb.jdbc.network.RemoteResultSet#getInt(java.lang.String)
     */
+   public double getDouble(String fldname) throws RemoteException {
+      try {
+         fldname = fldname.toLowerCase(); // to ensure case-insensitivity
+         return s.getVal(fldname).asDouble();
+      }
+      catch(RuntimeException e) {
+         rconn.rollback();
+         throw e;
+      }
+   }
+
    public String getString(String fldname) throws RemoteException {
 		try {
 	      fldname = fldname.toLowerCase(); // to ensure case-insensitivity
-	      return s.getString(fldname);
+	      return s.getVal(fldname).toString();   // any value can be read as a string
       }
       catch(RuntimeException e) {
          rconn.rollback();

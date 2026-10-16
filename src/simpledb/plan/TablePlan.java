@@ -1,5 +1,6 @@
 package simpledb.plan;
 
+import java.util.*;
 import simpledb.tx.Transaction;
 import simpledb.metadata.*;
 import simpledb.query.Scan;
@@ -13,6 +14,7 @@ public class TablePlan implements Plan {
    private Transaction tx;
    private Layout layout;
    private StatInfo si;
+   private String alias = null;
    
    /**
     * Creates a leaf node in the query tree corresponding
@@ -25,6 +27,31 @@ public class TablePlan implements Plan {
       this.tx = tx;
       layout = md.getLayout(tblname, tx);
       si = md.getStatInfo(tblname, layout, tx);
+   }
+
+   /**
+    * Creates a leaf node in the query tree corresponding
+    * to the specified table, whose fields are known by
+    * qualified names: field f of the table is called "alias.f".
+    * The records are read through a copy of the table's layout
+    * with the renamed fields (at the same offsets), so the scan
+    * is an ordinary table scan, and indexes work as usual.
+    * @param tblname the name of the table
+    * @param alias the name the table is known by in the query
+    * @param tx the calling transaction
+    */
+   public TablePlan(Transaction tx, String tblname, String alias, MetadataMgr md) {
+      this(tx, tblname, md);
+      this.alias = alias;
+      Schema qualified = new Schema();
+      Map<String,Integer> offsets = new HashMap<>();
+      Schema sch = layout.schema();
+      for (String fldname : sch.fields()) {
+         String qname = alias + "." + fldname;
+         qualified.addField(qname, sch.type(fldname), sch.length(fldname));
+         offsets.put(qname, layout.offset(fldname));
+      }
+      layout = new Layout(qualified, offsets, layout.slotSize());
    }
    
    /**
@@ -59,6 +86,9 @@ public class TablePlan implements Plan {
     * @see simpledb.plan.Plan#distinctValues(java.lang.String)
     */
    public int distinctValues(String fldname) {
+      // the statistics know the fields by their plain names
+      if (alias != null && fldname.startsWith(alias + "."))
+         fldname = fldname.substring(alias.length() + 1);
       return si.distinctValues(fldname);
    }
    
@@ -72,6 +102,6 @@ public class TablePlan implements Plan {
    }
 
    public String toString() {
-      return "TableScan(" + tblname + ")";
+      return "TableScan(" + tblname + (alias == null || alias.equals(tblname) ? "" : " " + alias) + ")";
    }
 }

@@ -3,6 +3,7 @@ package simpledb.metadata;
 import java.util.*;
 import simpledb.tx.Transaction;
 import simpledb.record.*;
+import simpledb.query.Constant;
 
 /**
  * The statistics manager is responsible for
@@ -16,6 +17,7 @@ class StatMgr {
    private TableMgr tblMgr;
    private Map<String,StatInfo> tablestats;
    private int numcalls;
+   private Map<String,Integer> modifications = new HashMap<>();
    
    /**
     * Create the statistics manager.
@@ -41,15 +43,33 @@ class StatMgr {
       if (numcalls > 100)
          refreshStatistics(tx);
       StatInfo si = tablestats.get(tblname);
+      // recompute the statistics once the records changed since they were
+      // gathered exceed a tenth of the table (or any change, for a tiny table)
+      int changed = modifications.getOrDefault(tblname, 0);
+      if (si != null && changed > Math.max(0, si.recordsOutput() / 10))
+         si = null;
       if (si == null) {
          si = calcTableStats(tblname, layout, tx);
          tablestats.put(tblname, si);
+         modifications.remove(tblname);
       }
       return si;
+   }
+
+   /**
+    * Records that the specified number of records of the table were
+    * inserted, deleted or modified, so that its statistics can be
+    * recomputed when they become out of date.
+    * @param tblname the name of the table
+    * @param count the number of records changed
+    */
+   public synchronized void recordModified(String tblname, int count) {
+      modifications.merge(tblname, count, Integer::sum);
    }
    
    private synchronized void refreshStatistics(Transaction tx) {
       tablestats = new HashMap<String,StatInfo>();
+      modifications.clear();
       numcalls = 0;
       Layout tcatlayout = tblMgr.getLayout("tblcat", tx);
       TableScan tcat = new TableScan(tx, "tblcat", tcatlayout);
@@ -65,13 +85,20 @@ class StatMgr {
    private synchronized StatInfo calcTableStats(String tblname, 
                               Layout layout, Transaction tx) {
       int numRecs = 0;
-      int numblocks = 0;
+      Map<String,Set<Constant>> values = new HashMap<>();
+      for (String fldname : layout.schema().fields())
+         values.put(fldname, new HashSet<>());
       TableScan ts = new TableScan(tx, tblname, layout);
       while (ts.next()) {
          numRecs++;
-         numblocks = ts.getRid().blockNumber() + 1;
+         for (String fldname : layout.schema().fields())
+            values.get(fldname).add(ts.getVal(fldname));
       }
       ts.close();
-      return new StatInfo(numblocks, numRecs);
+      Map<String,Integer> distinct = new HashMap<>();
+      for (String fldname : values.keySet())
+         distinct.put(fldname, values.get(fldname).size());
+      int numblocks = tx.approximateSize(tblname + ".tbl");
+      return new StatInfo(numblocks, numRecs, distinct);
    }
 }

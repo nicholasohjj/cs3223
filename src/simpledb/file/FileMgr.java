@@ -8,6 +8,7 @@ public class FileMgr {
    private int blocksize;
    private boolean isNew;
    private Map<String,RandomAccessFile> openFiles = new HashMap<>();
+   private long blocksRead = 0, blocksWritten = 0;
 
    public FileMgr(File dbDirectory, int blocksize) {
       this.dbDirectory = dbDirectory;
@@ -29,6 +30,7 @@ public class FileMgr {
          RandomAccessFile f = getFile(blk.fileName());
          f.seek(blk.number() * blocksize);
          f.getChannel().read(p.contents());
+         blocksRead++;
       }
       catch (IOException e) {
          throw new RuntimeException("cannot read block " + blk);
@@ -40,6 +42,7 @@ public class FileMgr {
          RandomAccessFile f = getFile(blk.fileName());
          f.seek(blk.number() * blocksize);
          f.getChannel().write(p.contents());
+         blocksWritten++;
       }
       catch (IOException e) {
          throw new RuntimeException("cannot write block" + blk);
@@ -69,6 +72,21 @@ public class FileMgr {
       catch (IOException e) {
          throw new RuntimeException("cannot access " + filename);
       }
+   }
+
+   /**
+    * Returns the number of blocks read from disk so far,
+    * e.g. for measuring the cost of a query plan.
+    */
+   public synchronized long blocksRead() {
+      return blocksRead;
+   }
+
+   /**
+    * Returns the number of blocks written to disk so far.
+    */
+   public synchronized long blocksWritten() {
+      return blocksWritten;
    }
 
    public boolean isNew() {

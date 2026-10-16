@@ -1,6 +1,8 @@
 package simpledb.materialize;
 
+import static java.sql.Types.DOUBLE;
 import simpledb.query.*;
+import simpledb.record.Schema;
 
 /**
  * The <i>sum</i> aggregation function.
@@ -9,6 +11,8 @@ import simpledb.query.*;
 public class SumFn implements AggregationFn {
    private String fldname;
    private int sum;
+   private double dsum;
+   private boolean isdouble = false;
 
    /**
     * Create a sum aggregation function for the specified field.
@@ -24,7 +28,9 @@ public class SumFn implements AggregationFn {
     * @see simpledb.materialize.AggregationFn#processFirst(simpledb.query.Scan)
     */
    public void processFirst(Scan s) {
-      sum = s.getVal(fldname).asInt();
+      sum = 0;
+      dsum = 0;
+      processNext(s);
    }
 
    /**
@@ -32,7 +38,10 @@ public class SumFn implements AggregationFn {
     * @see simpledb.materialize.AggregationFn#processNext(simpledb.query.Scan)
     */
    public void processNext(Scan s) {
-      sum += s.getVal(fldname).asInt();
+      if (isdouble)
+         dsum += s.getVal(fldname).asDouble();
+      else
+         sum += s.getVal(fldname).asInt();
    }
 
    /**
@@ -41,6 +50,20 @@ public class SumFn implements AggregationFn {
     */
    public void processEmpty() {
       sum = 0;
+      dsum = 0;
+   }
+
+   /**
+    * The sum has the same type as the summed field:
+    * int for an int field, double for a double field.
+    * @see simpledb.materialize.AggregationFn#addToSchema(Schema, Schema)
+    */
+   public void addToSchema(Schema outsch, Schema insch) {
+      isdouble = insch.type(fldname) == DOUBLE;
+      if (isdouble)
+         outsch.addDoubleField(fieldName());
+      else
+         outsch.addIntField(fieldName());
    }
 
    /**
@@ -56,7 +79,7 @@ public class SumFn implements AggregationFn {
     * @see simpledb.materialize.AggregationFn#value()
     */
    public Constant value() {
-      return new Constant(sum);
+      return isdouble ? new Constant(dsum) : new Constant(sum);
    }
 
    /**
@@ -64,5 +87,13 @@ public class SumFn implements AggregationFn {
     */
    public String toString() {
       return "sum(" + fldname + ")";
+   }
+
+   public String argField() {
+      return fldname;
+   }
+
+   public AggregationFn withField(String fldname) {
+      return new SumFn(fldname);
    }
 }

@@ -42,6 +42,20 @@ public interface AggregationFn {
    }
 
    /**
+    * Return the field that this function aggregates over.
+    * @return the name of the aggregated field
+    */
+   String argField();
+
+   /**
+    * Return the same function applied to a different field,
+    * e.g. after resolving the field's name to its qualified form.
+    * @param fldname the field to aggregate over
+    * @return a new aggregation function
+    */
+   AggregationFn withField(String fldname);
+
+   /**
     * Return the name of the new aggregation field.
     * @return the name of the new aggregation field
     */

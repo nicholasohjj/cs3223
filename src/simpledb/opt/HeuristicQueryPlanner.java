@@ -5,6 +5,7 @@ import simpledb.tx.Transaction;
 import simpledb.metadata.MetadataMgr;
 import simpledb.parse.Parser;
 import simpledb.parse.QueryData;
+import simpledb.parse.SetQueryData;
 import simpledb.materialize.GroupByPlan;
 import simpledb.materialize.SortPlan;
 import simpledb.materialize.DistinctPlan;
@@ -30,23 +31,17 @@ public class HeuristicQueryPlanner implements QueryPlanner {
     * results in the smallest output.
     */
    public Plan createPlan(QueryData data, Transaction tx) {
+      if (data instanceof SetQueryData)
+         return SetQueryPlanner.createPlan((SetQueryData) data, this, tx);
       
-      // the planners are local, so that a view can be planned recursively
-      // and concurrent queries (e.g. via the network server) do not interfere
-      Collection<TablePlanner> tableplanners = new ArrayList<>();
+      // Step 0:  Resolve every field name to its qualified "alias.field" form
+      QueryResolver resolver = new QueryResolver(data, mdm, tx);
+      data = resolver.query();
 
       // Step 1:  Create a TablePlanner object for each mentioned table or view
-      for (String tblname : data.tables()) {
-         String viewdef = mdm.getViewDef(tblname, tx);
-         TablePlanner tp;
-         if (viewdef != null) { // Recursively plan the view.
-            Plan viewplan = createPlan(new Parser(viewdef).query(), tx);
-            tp = new TablePlanner(viewplan, data.pred(), tx);
-         }
-         else
-            tp = new TablePlanner(tblname, data.pred(), tx, mdm);
-         tableplanners.add(tp);
-      }
+      // (they are local, so that a view can be planned recursively and
+      // concurrent queries, e.g. via the network server, do not interfere)
+      Collection<TablePlanner> tableplanners = tablePlanners(data, this, mdm, tx);
       
       // Step 2:  Choose the lowest-size plan to begin the join order
       Plan currentplan = getLowestSelectPlan(tableplanners);
@@ -60,21 +55,53 @@ public class HeuristicQueryPlanner implements QueryPlanner {
             currentplan = getLowestProductPlan(tableplanners, currentplan);
       }
       
+      // Steps 4-8
+      return addFinalOperators(currentplan, data, resolver, tx);
+   }
+
+   /**
+    * Creates a table planner for each table or view of the (resolved)
+    * query, in order.  A view is planned recursively by qp, and its
+    * fields qualified by its alias.
+    */
+   static List<TablePlanner> tablePlanners(QueryData data, QueryPlanner qp, MetadataMgr mdm, Transaction tx) {
+      List<TablePlanner> tableplanners = new ArrayList<>();
+      Iterator<String> aliases = data.aliases().iterator();
+      for (String tblname : data.tables()) {
+         String alias = aliases.next();
+         String viewdef = mdm.getViewDef(tblname, tx);
+         if (viewdef != null) { // Recursively plan the view.
+            Plan viewplan = qp.createPlan(new Parser(viewdef).query(), tx);
+            tableplanners.add(new TablePlanner(RenamePlan.qualify(viewplan, alias), data.pred(), tx));
+         }
+         else
+            tableplanners.add(new TablePlanner(tblname, alias, data.pred(), tx, mdm));
+      }
+      return tableplanners;
+   }
+
+   /**
+    * Adds the operators that follow the joins: group by, sort,
+    * project, distinct, and the renaming of the output fields.
+    */
+   static Plan addFinalOperators(Plan p, QueryData data, QueryResolver resolver, Transaction tx) {
       // Step 4.  Group and aggregate, if requested
       if (data.isGrouped())
-         currentplan = new GroupByPlan(tx, currentplan, data.groupByFields(), data.aggFns());
+         p = new GroupByPlan(tx, p, data.groupByFields(), data.aggFns());
 
       // Step 5.  Sort, if requested (a distinct query sorts in step 7 instead)
       if (!data.isDistinct() && !data.orderByList().isEmpty())
-         currentplan = new SortPlan(tx, currentplan, data.orderByList());
+         p = new SortPlan(tx, p, data.orderByList());
 
       // Step 6.  Project on the field names
-      currentplan = new ProjectPlan(currentplan, data.fields());
+      p = new ProjectPlan(p, data.fields());
 
-      // Step 7.  Remove duplicate rows, if requested, and return
+      // Step 7.  Remove duplicate rows, if requested
       if (data.isDistinct())
-         currentplan = new DistinctPlan(tx, currentplan, data.orderByList());
-      return currentplan;
+         p = new DistinctPlan(tx, p, data.orderByList());
+
+      // Step 8.  Give the output fields the names the query used
+      return new RenamePlan(p, resolver.outputNames());
    }
    
    private Plan getLowestSelectPlan(Collection<TablePlanner> tableplanners) {

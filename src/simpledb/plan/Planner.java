@@ -2,6 +2,7 @@ package simpledb.plan;
 
 import simpledb.tx.Transaction;
 import simpledb.parse.*;
+import simpledb.metadata.MetadataMgr;
 
 /**
  * The object that executes SQL statements.
@@ -10,10 +11,21 @@ import simpledb.parse.*;
 public class Planner {
    private QueryPlanner qplanner;
    private UpdatePlanner uplanner;
+   private MetadataMgr mdm;
    
    public Planner(QueryPlanner qplanner, UpdatePlanner uplanner) {
+      this(qplanner, uplanner, null);
+   }
+
+   /**
+    * Creates a planner that also validates update statements
+    * against the catalog before executing them.
+    * @param mdm the metadata manager
+    */
+   public Planner(QueryPlanner qplanner, UpdatePlanner uplanner, MetadataMgr mdm) {
       this.qplanner = qplanner;
       this.uplanner = uplanner;
+      this.mdm = mdm;
    }
    
    /**
@@ -25,6 +37,7 @@ public class Planner {
    public Plan createQueryPlan(String qry, Transaction tx) {
       Parser parser = new Parser(qry);
       QueryData data = parser.query();
+      parser.checkEnd();
       verifyQuery(data);
       return qplanner.createPlan(data, tx);
    }
@@ -42,7 +55,8 @@ public class Planner {
    public int executeUpdate(String cmd, Transaction tx) {
       Parser parser = new Parser(cmd);
       Object data = parser.updateCmd();
-      verifyUpdate(data);
+      parser.checkEnd();
+      data = verifyUpdate(data, tx);
       if (data instanceof InsertData)
          return uplanner.executeInsert((InsertData)data, tx);
       else if (data instanceof DeleteData)
@@ -59,11 +73,14 @@ public class Planner {
          return 0;
    }
  
-   // SimpleDB does not verify queries, although it should.
+   // A query's names and types are checked when it is planned,
+   // by QueryResolver (and SetQueryPlanner for set operations).
    private void verifyQuery(QueryData data) {
    }
 
-   // SimpleDB does not verify updates, although it should.
-   private void verifyUpdate(Object data) {
+   // Checks an update statement against the catalog, and returns
+   // the statement to execute; see UpdateValidator.
+   private Object verifyUpdate(Object data, Transaction tx) {
+      return (mdm == null) ? data : new UpdateValidator(mdm, tx).validate(data);
    }
 }

@@ -31,4 +31,12 @@ public class CreateViewData {
    public String viewDef() {
       return qrydata.toString();
    }
+
+   /**
+    * Returns the query that defines the new view.
+    * @return the view's query
+    */
+   public QueryData queryData() {
+      return qrydata;
+   }
 }

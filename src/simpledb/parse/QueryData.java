@@ -17,6 +17,7 @@ public class QueryData {
    private final List<String> groupByFields;
    private final List<AggregationFn> aggFns;
    private final boolean distinct;
+   private final List<String> aliases;
 
    /**
     * Saves the field and table list and predicate.
@@ -50,6 +51,18 @@ public class QueryData {
    public QueryData(List<String> fields, Collection<String> tables, Predicate pred,
                      List<OrderByElement> orderByList, List<String> groupByFields,
                      List<AggregationFn> aggFns, boolean distinct) {
+      this(fields, tables, null, pred, orderByList, groupByFields, aggFns, distinct);
+   }
+
+   /**
+    * Saves the clauses of the query, as above, and the alias
+    * given to each table of the from clause.
+    * @param aliases the alias of each table, in the same order as the
+    *                tables; null (or a null entry) means the table's own name
+    */
+   public QueryData(List<String> fields, Collection<String> tables, List<String> aliases,
+                     Predicate pred, List<OrderByElement> orderByList, List<String> groupByFields,
+                     List<AggregationFn> aggFns, boolean distinct) {
       this.fields = fields;
       this.tables = tables;
       this.pred = pred;
@@ -57,6 +70,12 @@ public class QueryData {
       this.groupByFields = groupByFields;
       this.aggFns = aggFns;
       this.distinct = distinct;
+      this.aliases = new ArrayList<>();
+      Iterator<String> it = (aliases == null) ? null : aliases.iterator();
+      for (String tblname : tables) {
+         String alias = (it == null) ? null : it.next();
+         this.aliases.add(alias == null ? tblname : alias);
+      }
    }
 
    /**
@@ -76,6 +95,16 @@ public class QueryData {
     */
    public Collection<String> tables() {
       return tables;
+   }
+
+   /**
+    * Returns the alias of each table in the from clause, in the
+    * same order as tables(); a table without an alias is
+    * known by its own name.
+    * @return a list of aliases
+    */
+   public List<String> aliases() {
+      return aliases;
    }
 
    /**
@@ -120,6 +149,15 @@ public class QueryData {
    }
 
    /**
+    * Returns the same query with the specified order by clause.
+    * @param orderByList the new order by clause
+    * @return the query, ordered by those fields
+    */
+   public QueryData withOrderBy(List<OrderByElement> orderByList) {
+      return new QueryData(fields, tables, aliases, pred, orderByList, groupByFields, aggFns, distinct);
+   }
+
+   /**
     * Returns true if duplicate rows are to be removed from the output.
     * @return true if the query is a select distinct
     */
@@ -138,8 +176,11 @@ public class QueryData {
          result.append(aggtext.getOrDefault(fldname, fldname)).append(", ");
       result.setLength(result.length() - 2);
       result.append(" from ");
-      for (String tblname : tables)
-         result.append(tblname).append(", ");
+      Iterator<String> alias = aliases.iterator();
+      for (String tblname : tables) {
+         String a = alias.next();
+         result.append(tblname).append(a.equals(tblname) ? "" : " " + a).append(", ");
+      }
       result.setLength(result.length() - 2);
       String predstring = pred.toString();
       if (!predstring.isEmpty())

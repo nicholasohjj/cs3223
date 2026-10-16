@@ -21,6 +21,7 @@ public class Transaction {
    private FileMgr fm;
    private int txnum;
    private BufferList mybuffers;
+   private java.util.List<Runnable> rollbackActions = new java.util.ArrayList<>();
    
    /**
     * Create a new transaction and its associated 
@@ -65,9 +66,21 @@ public class Transaction {
     */
    public void rollback() {
       recoveryMgr.rollback();
+      for (Runnable action : rollbackActions)
+         action.run();
       System.out.println("transaction " + txnum + " rolled back");
       concurMgr.release();
       mybuffers.unpinAll();
+   }
+   
+   /**
+    * Registers an action to run if the transaction is rolled back,
+    * e.g. to note that the statistics of a table it changed
+    * are out of date again.
+    * @param action the action
+    */
+   public void onRollback(Runnable action) {
+      rollbackActions.add(action);
    }
    
    /**
@@ -169,6 +182,35 @@ public class Transaction {
     * @param offset a byte offset within that block
     * @param val the value to be stored
     */
+   /**
+    * Return the double value stored at the specified offset
+    * of the specified block.  A double occupies 8 bytes,
+    * stored as two ints (high bits first).
+    * @param blk a reference to a disk block
+    * @param offset the byte offset within that block
+    * @return the double stored at that offset
+    */
+   public double getDouble(BlockId blk, int offset) {
+      long hi = getInt(blk, offset);
+      long lo = getInt(blk, offset + Integer.BYTES) & 0xffffffffL;
+      return Double.longBitsToDouble((hi << 32) | lo);
+   }
+
+   /**
+    * Store a double at the specified offset of the specified block,
+    * as two ints, so that each half is logged and recovered
+    * like any other int.
+    * @param blk a reference to the disk block
+    * @param offset a byte offset within that block
+    * @param val the value to be stored
+    * @param okToLog true if the change should be logged
+    */
+   public void setDouble(BlockId blk, int offset, double val, boolean okToLog) {
+      long bits = Double.doubleToLongBits(val);
+      setInt(blk, offset, (int) (bits >>> 32), okToLog);
+      setInt(blk, offset + Integer.BYTES, (int) bits, okToLog);
+   }
+
    public void setString(BlockId blk, int offset, String val, boolean okToLog) {
       concurMgr.xLock(blk);
       Buffer buff = mybuffers.getBuffer(blk);
@@ -188,6 +230,17 @@ public class Transaction {
     * @param filename the name of the file
     * @return the number of blocks in the file
     */
+   /**
+    * Return the number of blocks in the specified file, without
+    * locking the end of the file (so the answer may change at any
+    * time).  This is enough for statistics, which are estimates.
+    * @param filename the name of the file
+    * @return the number of blocks in the file
+    */
+   public int approximateSize(String filename) {
+      return fm.length(filename);
+   }
+
    public int size(String filename) {
       BlockId dummyblk = new BlockId(filename, END_OF_FILE);
       concurMgr.sLock(dummyblk);

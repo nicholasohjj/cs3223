@@ -34,6 +34,15 @@ public class NetworkResultSet extends ResultSetAdapter {
       }
    }
    
+   public double getDouble(String fldname) throws SQLException {
+      try {
+         return rrs.getDouble(fldname);
+      }
+      catch (Exception e) {
+         throw new SQLException(e);
+      }
+   }
+   
    public String getString(String fldname) throws SQLException {
       try {
          return rrs.getString(fldname);
