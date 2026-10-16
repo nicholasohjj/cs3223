@@ -28,3 +28,6 @@ bin/
 
 ### Mac OS ###
 .DS_Store
+
+### SimpleDB+ test database (rebuilt by SimpleDBPlusTest) ###
+simpledbplustest/

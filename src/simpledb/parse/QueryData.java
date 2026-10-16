@@ -129,8 +129,13 @@ public class QueryData {
 
    public String toString() {
       StringBuilder result = new StringBuilder(distinct ? "select distinct " : "select ");
+      // an aggregate is written as its function call (e.g. "count(sid)"),
+      // not its output field name, so that the text can be parsed again
+      Map<String,String> aggtext = new HashMap<>();
+      for (AggregationFn fn : aggFns)
+         aggtext.put(fn.fieldName(), fn.toString());
       for (String fldname : fields)
-         result.append(fldname).append(", ");
+         result.append(aggtext.getOrDefault(fldname, fldname)).append(", ");
       result.setLength(result.length() - 2);
       result.append(" from ");
       for (String tblname : tables)

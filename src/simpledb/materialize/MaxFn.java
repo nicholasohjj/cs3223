@@ -74,4 +74,11 @@ public class MaxFn implements AggregationFn {
    public Constant value() {
       return val;
    }
+
+   /**
+    * Returns the function call as written in SQL, e.g. "max(sal)".
+    */
+   public String toString() {
+      return "max(" + fldname + ")";
+   }
 }

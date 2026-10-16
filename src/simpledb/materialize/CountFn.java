@@ -63,4 +63,11 @@ public class CountFn implements AggregationFn {
    public Constant value() {
       return new Constant(count);
    }
+
+   /**
+    * Returns the function call as written in SQL, e.g. "count(sal)".
+    */
+   public String toString() {
+      return "count(" + fldname + ")";
+   }
 }

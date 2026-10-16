@@ -74,4 +74,11 @@ public class MinFn implements AggregationFn {
    public Constant value() {
       return val;
    }
+
+   /**
+    * Returns the function call as written in SQL, e.g. "min(sal)".
+    */
+   public String toString() {
+      return "min(" + fldname + ")";
+   }
 }

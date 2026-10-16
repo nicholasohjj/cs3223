@@ -66,4 +66,11 @@ public class AvgFn implements AggregationFn {
    public Constant value() {
       return new Constant(count == 0 ? 0 : sum / count);
    }
+
+   /**
+    * Returns the function call as written in SQL, e.g. "avg(sal)".
+    */
+   public String toString() {
+      return "avg(" + fldname + ")";
+   }
 }

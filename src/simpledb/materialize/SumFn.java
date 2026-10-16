@@ -58,4 +58,11 @@ public class SumFn implements AggregationFn {
    public Constant value() {
       return new Constant(sum);
    }
+
+   /**
+    * Returns the function call as written in SQL, e.g. "sum(sal)".
+    */
+   public String toString() {
+      return "sum(" + fldname + ")";
+   }
 }

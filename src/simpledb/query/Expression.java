@@ -68,6 +68,9 @@ public class Expression {
    }
    
    public String toString() {
-      return (val != null) ? val.toString() : fldname;
+      if (val == null)
+         return fldname;
+      // quote string constants, so that the text can be parsed again (e.g. a view definition)
+      return (val.asString() != null) ? "'" + val.asString() + "'" : val.toString();
    }
 }

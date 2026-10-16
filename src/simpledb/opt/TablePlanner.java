@@ -16,7 +16,7 @@ import simpledb.plan.*;
  * @author Edward Sciore
  */
 class TablePlanner {
-   private TablePlan myplan;
+   private Plan myplan;
    private Predicate mypred;
    private Schema myschema;
    private Map<String,IndexInfo> indexes;
@@ -38,6 +38,22 @@ class TablePlanner {
       myplan   = new TablePlan(tx, tblname, mdm);
       myschema = myplan.schema();
       indexes  = mdm.getIndexInfo(tblname, tx);
+   }
+
+   /**
+    * Creates a table planner for an already-planned subquery,
+    * such as a view.  A subquery has no indexes, so it is
+    * joined using a hash, merge or nested-loops join.
+    * @param subplan the plan for the subquery
+    * @param mypred the query predicate
+    * @param tx the calling transaction
+    */
+   public TablePlanner(Plan subplan, Predicate mypred, Transaction tx) {
+      this.mypred  = mypred;
+      this.tx  = tx;
+      myplan   = subplan;
+      myschema = myplan.schema();
+      indexes  = Map.of();
    }
    
    /**
