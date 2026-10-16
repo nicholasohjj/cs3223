@@ -122,9 +122,11 @@ class TablePlanner {
       if (mypred.joinSubPred(myschema, currsch) == null)
          return result;
       for (Plan p : Arrays.asList(makeIndexJoin(current, currsch), makeHashJoin(current, currsch),
-                                  makeMergeJoin(current, currsch), makeNestedLoopsJoin(current, currsch)))
+                                  makeMergeJoin(current, currsch)))
          if (p != null)
             result.add(p);
+      if (result.isEmpty() || JoinMethods.isAllowed(JoinMethods.NESTED))
+         result.add(makeNestedLoopsJoin(current, currsch));
       return result;
    }
    
@@ -146,6 +148,8 @@ class TablePlanner {
       // equality join field.  Otherwise, for an equality term, use a
       // hash join if it needs only one partitioning pass, else a merge
       // join; and finally fall back to a nested-loops join.
+      // Only the join methods allowed by JoinMethods are tried; a
+      // nested-loops join is the fallback when none of them applies.
       Plan p = makeIndexJoin(current, currsch);
       if (p == null)
          p = makeHashJoin(current, currsch);
@@ -174,6 +178,8 @@ class TablePlanner {
    }
    
    private Plan makeIndexJoin(Plan current, Schema currsch) {
+      if (!JoinMethods.isAllowed(JoinMethods.INDEX))
+         return null;
       for (String fldname : indexes.keySet()) {
          String outerfield = mypred.equatesWithField(fldname);
          if (outerfield != null && currsch.hasField(outerfield)) {
@@ -187,11 +193,15 @@ class TablePlanner {
    }
 
    private Plan makeHashJoin(Plan current, Schema currsch) {
+      if (!JoinMethods.isAllowed(JoinMethods.HASH))
+         return null;
       for (String fldname : myschema.fields()) {
          String outerfield = mypred.equatesWithField(fldname);
          if (outerfield != null && currsch.hasField(outerfield)) {
             Plan inner = addSelectPred(myplan);
-            if (!HashJoinPlan.fits(tx, current, inner))
+            // a hash join that needs more than one partitioning pass is
+            // left to the merge join, unless merge joins are not allowed
+            if (!HashJoinPlan.fits(tx, current, inner) && JoinMethods.isAllowed(JoinMethods.MERGE))
                return null;
             Plan p = new HashJoinPlan(tx, current, inner, outerfield, fldname);
             return addJoinPred(p, currsch, fldname, outerfield);
@@ -201,6 +211,8 @@ class TablePlanner {
    }
 
    private Plan makeMergeJoin(Plan current, Schema currsch) {
+      if (!JoinMethods.isAllowed(JoinMethods.MERGE))
+         return null;
       for (String fldname : myschema.fields()) {
          String outerfield = mypred.equatesWithField(fldname);
          if (outerfield != null && currsch.hasField(outerfield)) {

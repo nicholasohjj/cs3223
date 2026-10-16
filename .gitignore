@@ -31,3 +31,4 @@ bin/
 
 ### SimpleDB+ test database (rebuilt by SimpleDBPlusTest) ###
 simpledbplustest/
+studentdb_large/
