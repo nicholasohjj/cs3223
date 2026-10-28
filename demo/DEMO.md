@@ -10,10 +10,11 @@ Compile, then build a fresh database in an empty directory (SimpleDB opens
 `studentdb` relative to the working directory):
 
 ```
+REPO=$(pwd)    # run from the repo root
 javac -nowarn -d out/demo $(find src -name '*.java')
 mkdir -p /tmp/simpledb-demo && cd /tmp/simpledb-demo && rm -rf studentdb
-java -cp <repo>/out/demo simpledb.test.CreateStudentDB
-java -cp <repo>/out/demo simpledb.test.SimpleIJ
+java -cp "$REPO"/out/demo simpledb.test.CreateStudentDB
+java -cp "$REPO"/out/demo simpledb.test.SimpleIJ
 ```
 
 Every query prints its plan before its rows. To show a plan without running
@@ -98,8 +99,8 @@ select sname from student where gradyear > 2020 order by sname garbage
 Cost-based optimizer, and forcing a join method. Restart SimpleIJ with one
 of these flags and `explain` the same query to compare the plans:
 ```
-java -Dsimpledb.planner=cost -cp <repo>/out/demo simpledb.test.SimpleIJ
-java -Dsimpledb.joins=merge  -cp <repo>/out/demo simpledb.test.SimpleIJ   # or hash / nested / index
+java -Dsimpledb.planner=cost -cp "$REPO"/out/demo simpledb.test.SimpleIJ
+java -Dsimpledb.joins=merge  -cp "$REPO"/out/demo simpledb.test.SimpleIJ   # or hash / nested / index
 explain select sname, dname, grade from student, dept, enroll where majorid = did and sid = studentid order by dname
 ```
 
