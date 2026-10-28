@@ -7,10 +7,10 @@ Small database: `test/CreateStudentDB` (9 students, 3 depts, 6 courses,
 ## Setup
 
 Compile, then build a fresh database in an empty directory (SimpleDB opens
-`studentdb` relative to the working directory):
+`studentdb` relative to the working directory). Run these from the repo root:
 
 ```
-REPO=$(pwd)    # run from the repo root
+REPO=$(pwd)
 javac -nowarn -d out/demo $(find src -name '*.java')
 mkdir -p /tmp/simpledb-demo && cd /tmp/simpledb-demo && rm -rf studentdb
 java -cp "$REPO"/out/demo simpledb.test.CreateStudentDB
@@ -97,10 +97,11 @@ select sname from student where gradyear > 2020 order by sname garbage
 ```
 
 Cost-based optimizer, and forcing a join method. Restart SimpleIJ with one
-of these flags and `explain` the same query to compare the plans:
+of these flags (`merge` can also be `hash`, `nested` or `index`) and
+`explain` the same query to compare the plans:
 ```
 java -Dsimpledb.planner=cost -cp "$REPO"/out/demo simpledb.test.SimpleIJ
-java -Dsimpledb.joins=merge  -cp "$REPO"/out/demo simpledb.test.SimpleIJ   # or hash / nested / index
+java -Dsimpledb.joins=merge -cp "$REPO"/out/demo simpledb.test.SimpleIJ
 explain select sname, dname, grade from student, dept, enroll where majorid = did and sid = studentid order by dname
 ```
 
