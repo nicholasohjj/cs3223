@@ -63,14 +63,18 @@ public class GroupByPlan implements Plan {
    /**
     * Return the number of groups.  Assuming equal distribution,
     * this is the product of the distinct values
-    * for each grouping field.
+    * for each grouping field, capped at the number of
+    * input records (there can't be more groups than rows).
+    * With no group fields there is always exactly one row.
     * @see simpledb.plan.Plan#recordsOutput()
     */
    public int recordsOutput() {
-      int numgroups = 1;
+      if (groupfields.isEmpty())
+         return 1;
+      long numgroups = 1;
       for (String fldname : groupfields)
          numgroups *= p.distinctValues(fldname);
-      return numgroups;
+      return (int) Math.min(numgroups, p.recordsOutput());
    }
    
    /**
